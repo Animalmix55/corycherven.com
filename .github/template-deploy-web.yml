@@ -1,0 +1,74 @@
+name: Deploy Web
+
+on:
+  workflow_call:
+    inputs:
+      CLOUDFRONT_ROOT_DISTRIBUTION:
+        type: string
+        required: true
+        description: 'The CloudFront distribution ID for the root bucket, used to invalidate the cache'
+      ROOT_BUCKET:
+        type: string
+        required: true
+        description: 'The name of the bucket that houses the web root'
+      HOME_SPA_URL:
+        type: string
+        required: true
+        description: 'The base URL of @cory/web-home'
+      ROOT_SPA_PATH:
+        type: string
+        required: true
+        description: 'The path to the root SPA'
+      AWS_REGION:
+        type: string
+        required: true
+        default: 'us-east-1'
+      OUTPUT_DIR:
+        type: string
+        required: true
+        description: 'The directory where the built web-root is located relative to HOME_SPA_URL (e.g. dist/)'
+        default: 'dist/'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+        description: 'AWS Access Key ID'
+      AWS_ACCESS_KEY_SECRET:
+        required: true
+        description: 'AWS Access Key Secret'
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      # update the maps/importmap.json @cory/web-home to be the spa URL with jq and overwrite the file
+      - name: Update importmap.json
+        working-directory: ${{ inputs.ROOT_SPA_PATH }}
+        run: |
+          jq '.imports["@cory/web-home"] = "${{ inputs.HOME_SPA_URL }}"' maps/importmap.json > maps/importmap.json.tmp
+          mv maps/importmap.json.tmp maps/importmap.json
+
+      # build the web-root
+      - name: Build web-root
+        run: yarn build
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          aws-region: ${{ inputs.AWS_REGION }}
+
+      # sync the web-root to the root bucket
+      - name: Sync web-root to root bucket
+        working-directory: ${{ inputs.ROOT_SPA_PATH }}
+        run: aws s3 sync ${{ inputs.OUTPUT_DIR }} s3://${{ inputs.ROOT_BUCKET }}/${{ inputs.OUTPUT_DIR }} --delete
+
+      # invalidate the CloudFront cache
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ inputs.CLOUDFRONT_ROOT_DISTRIBUTION }} --paths "/*"
