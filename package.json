@@ -1,0 +1,27 @@
+{
+    "name": "@cory/root",
+    "version": "0.0.1",
+    "private": true,
+    "workspaces": [
+        "packages/**/*"
+    ],
+    "scripts": {
+        "build": "yarn workspaces foreach -Apt run build",
+        "start": "yarn workspaces foreach -Ap run start",
+        "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.md,.mjs,.cjs"
+    },
+    "devDependencies": {
+        "@eslint/markdown": "6.2.1",
+        "@typescript-eslint/eslint-plugin": "8.21.0",
+        "@typescript-eslint/parser": "8.21.0",
+        "eslint": "8.57.1",
+        "eslint-config-airbnb-base": "15.0.0",
+        "eslint-config-prettier": "10.0.1",
+        "eslint-plugin-import": "2.31.0",
+        "eslint-plugin-markdown": "5.1.0",
+        "eslint-plugin-prettier": "5.2.3",
+        "prettier": "3.4.2",
+        "typescript": "5.7.3"
+    },
+    "packageManager": "yarn@4.6.0"
+}

@@ -1,0 +1,43 @@
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Cory Cherven</title>
+
+        <meta name="importmap-type" content="systemjs-importmap" />
+
+        
+        <script type="systemjs-importmap" src="/maps/importmap-local.json"></script>
+        
+
+        <link rel="preload" href="https://cdn.jsdelivr.net/npm/single-spa@6.0.3/lib/es2015/system/single-spa.min.js" as="script">
+        <script src="https://cdn.jsdelivr.net/npm/regenerator-runtime@0.13.7/runtime.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/import-map-overrides@2.2.0/dist/import-map-overrides.js"></script>
+        
+        
+        <script src="https://cdn.jsdelivr.net/npm/systemjs@6.14.3/dist/system.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/systemjs@6.14.3/dist/extras/amd.js"></script>
+        
+
+        <script>
+            // register single-spas
+            System.import('@cory/web-root');
+        </script>
+        
+        <!-- A router layout to drive single-spa -->
+        <template id="single-spa-layout" style="display: none;">
+            <single-spa-router>
+                <route path="/" exact="true">
+                    <application name="@cory/web-home"></application>
+                </route>
+            </single-spa-router>
+        </template>
+        <!-- End router layout -->
+    </head>
+    <body>
+        <noscript>
+            You need to enable JavaScript to run this app.
+        </noscript>
+        <import-map-overrides-full show-when-local-storage="devtools" dev-libs></import-map-overrides-full>
+    </body>
+</html>
