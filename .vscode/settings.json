@@ -12,7 +12,9 @@
     "https://json.schemastore.org/github-workflow.json": [
       "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/template-publish-spa.yml",
       "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/template-deploy-web.yml",
-      "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/force-deploy-branch.yml"
+      "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/force-deploy-branch.yml",
+      "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/deploy-alpha.yml",
+      "file:///c%3A/Users/coryc/Repos/corycherven.com/.github/template-publish-spas.yml"
     ]
   }
 }
