@@ -11,10 +11,11 @@ on:
         type: string
         required: true
         description: 'The name of the bucket that houses the web root'
-      HOME_SPA_URL:
+      SOURCEMAP_OVERRIDES:
         type: string
         required: true
-        description: 'The base URL of @cory/web-home'
+        description: 'A json object that maps spa package names to their source map override URLs'
+        default: '{}'
       ROOT_SPA_PATH:
         type: string
         required: true
@@ -46,11 +47,17 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      # update the maps/importmap.json @cory/web-home to be the spa URL with jq and overwrite the file
+      # apply the source map overrides to maps/importmap.json
       - name: Update importmap.json
         working-directory: ${{ inputs.ROOT_SPA_PATH }}
         run: |
-          jq '.imports["@cory/web-home"] = "${{ inputs.HOME_SPA_URL }}"' maps/importmap.json > maps/importmap.json.tmp
+          jq --argjson overrides '${{ inputs.SOURCEMAP_OVERRIDES }}' '
+            .imports as $imports |
+            $overrides | to_entries | reduce .[] as $item (
+              $imports;
+              .[$item.key] = $item.value
+            ) | {imports: .}
+          ' maps/importmap.json > maps/importmap.json.tmp
           mv maps/importmap.json.tmp maps/importmap.json
 
       # build the web-root

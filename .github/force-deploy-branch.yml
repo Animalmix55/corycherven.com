@@ -1,0 +1,67 @@
+on:
+  workflow_dispatch:
+
+
+jobs:
+  find-modified-spas:
+    outputs:
+      modified_spas: ${{ steps.find_modified_spas.outputs.modified_spas }} # space-separated list of modified SPA paths
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Find SPAs
+        id: find_spas
+        # outputs a space-separated list of SPA locations
+        run: |
+          WORKSPACES=$(yarn workspaces list --json)
+          SPA_LOCATIONS=$(echo "$WORKSPACES" | jq -r '.[] | select(.name | endswith("-spa")) | .location')
+          echo "spa_locations=$SPA_LOCATIONS" >> $GITHUB_OUTPUT
+      - name: find modified SPAs
+        id: find_modified_spas
+        # output space-delimited modified SPA paths compared to the main branch
+        run: |
+          MODIFIED_SPAS=()
+          for SPA_LOCATION in $(echo "${{ steps.find_spas.outputs.spa_locations }}" | tr ' ' '\n'); do
+            if git diff --quiet origin/main...HEAD -- $SPA_LOCATION; then
+              continue
+            fi
+            MODIFIED_SPAS+=("$SPA_LOCATION")
+          done
+          echo "modified_spas=$(printf '%s\n' "${MODIFIED_SPAS[@]}" | jq -R . | jq -s .)" >> $GITHUB_OUTPUT
+  # matrix over modified SPAs to deploy
+  deploy-web:
+    needs: find-modified-spas
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        SPA_PATH: ${{ fromJson(needs.find-modified-spas.outputs.modified_spas) }}
+    steps:
+    # TODO: make spa workflow a matrix?
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Update importmap.json
+        working-directory: ${{ matrix.SPA_PATH }}
+        run: |
+          jq '.imports["@cory/web-home"] = "${{ inputs.HOME_SPA_URL }}"' maps/importmap.json > maps/importmap.json.tmp
+          mv maps/importmap.json.tmp maps/importmap.json
+      - name: Build web-root
+        run: yarn build
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      - name: Publish SPA
+        uses: ./.github/template-publish-spa.yml
+        with:
+          SPA_PATH: ${{ matrix.SPA_PATH }}
+          CDN_BUCKET: ${{ inputs.ROOT_BUCKET }}
+          AWS_REGION: ${{ inputs.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          OUTPUT_DIR: ${{ inputs.OUTPUT_DIR }}
+    

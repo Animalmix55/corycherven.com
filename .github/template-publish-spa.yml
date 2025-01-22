@@ -41,9 +41,9 @@ jobs:
         working-directory: ${{ inputs.SPA_PATH }}
         run: |
           PACKAGE_NAME=$(jq -r '.name' package.json)
-          echo "package_name=$PACKAGE_NAME" >> $GITHUB_ENV
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           PACKAGE_VERSION=$(jq -r '.version' package.json)
-          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_ENV
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
   
   # use yarn to build, zero-install
   build:
@@ -77,6 +77,6 @@ jobs:
         id: get_new_path
         run: |
           PACKAGE_BUCKET_PATH=${{ steps.extract-package-metadata.outputs.package_name }}/${{ steps.extract-package-metadata.outputs.package_version }}
-          echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_ENV
+          echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
       - name: Upload SPA to S3
         run: aws s3 sync ${{ inputs.SPA_PATH }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
