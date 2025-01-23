@@ -1,5 +1,5 @@
 {
-    "name": "@cory/web-home",
+    "name": "@cory/web-home-spa",
     "version": "0.0.1",
     "scripts": {
         "build": "rollup -c",

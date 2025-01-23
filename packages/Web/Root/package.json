@@ -1,5 +1,5 @@
 {
-    "name": "@cory/web-root-spa",
+    "name": "@cory/web-root",
     "version": "0.0.1",
     "scripts": {
         "build": "rollup -c",

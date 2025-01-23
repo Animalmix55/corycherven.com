@@ -23,9 +23,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@cory/web-home@workspace:packages/Web/Home":
+"@cory/web-home-spa@workspace:packages/Web/Home":
   version: 0.0.0-use.local
-  resolution: "@cory/web-home@workspace:packages/Web/Home"
+  resolution: "@cory/web-home-spa@workspace:packages/Web/Home"
   dependencies:
     "@rollup/plugin-commonjs": "npm:28.0.2"
     "@rollup/plugin-image": "npm:3.0.3"
