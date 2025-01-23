@@ -46,7 +46,7 @@ jobs:
         run: |
           echo '{}' > $GITHUB_WORKSPACE/source-map-overrides.json
       - name: Upload source map override file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: source-map-overrides
           path: $GITHUB_WORKSPACE/source-map-overrides.json
@@ -130,7 +130,7 @@ jobs:
         run: aws s3 sync ${{ steps.get_directory.outputs.spa_location }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
 
       - name: Retrieve source map override file
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: source-map-overrides
 
@@ -151,7 +151,7 @@ jobs:
           mv $SOURCE_MAP_OVERRIDE_FILE.tmp $SOURCE_MAP_OVERRIDE_FILE
 
       - name: Upload updated source map overrides
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: source-map-overrides
           path: $GITHUB_WORKSPACE/source-map-overrides.json
@@ -163,7 +163,7 @@ jobs:
       source_map_overrides: ${{ steps.output_as_json.outputs.source_map_overrides }}
     steps:
       - name: Download source map overrides
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: source-map-overrides
 
