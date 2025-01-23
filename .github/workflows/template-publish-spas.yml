@@ -1,4 +1,4 @@
-name: Publish SPAs
+name: "[TEMPLATE] Publish SPAs"
 
 on:
   workflow_call:
@@ -16,12 +16,12 @@ on:
         description: 'A json array of SPA package names to publish (e.g. ["@cory/web-home", "@cory/web-about"])'
       ALPHA_RELEASE:
         type: boolean
-        required: true
+        required: false
         description: 'Whether to make the release version alpha'
         default: false
       AWS_REGION:
         type: string
-        required: true
+        required: false
         default: 'us-east-1'
     secrets:
       AWS_ACCESS_KEY_ID:
@@ -31,7 +31,9 @@ on:
         required: true
         description: 'AWS Access Key Secret'
     outputs:
-      source_map_overrides: ${{ steps.compile-sourcemap.outputs.source_map_overrides }}
+      source_map_overrides:
+        value: ${{ jobs.compile-sourcemap.outputs.source_map_overrides }}
+        description: 'A json object that maps spa package names to their source map override URLs'
     
 jobs:
   # create a JSON file indexed by SPA package name with the source map override URL as a placeholder
@@ -121,7 +123,7 @@ jobs:
       - name: Get new path in bucket
         id: get_new_path
         run: |
-          PACKAGE_BUCKET_PATH=${{ steps.extract-package_metadata.outputs.package_name }}/${{ steps.output_package_version.outputs.package_version }}
+          PACKAGE_BUCKET_PATH=${{ steps.extract_package_metadata.outputs.package_name }}/${{ steps.output_package_version.outputs.package_version }}
           echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload SPA to S3
@@ -157,6 +159,8 @@ jobs:
   compile-sourcemap:
     runs-on: ubuntu-latest
     needs: publish-spa
+    outputs:
+      source_map_overrides: ${{ steps.output_as_json.outputs.source_map_overrides }}
     steps:
       - name: Download source map overrides
         uses: actions/download-artifact@v2
