@@ -23,8 +23,7 @@ jobs:
         id: find_spas
         # outputs a JSON list of SPA locations
         run: |
-          WORKSPACES=$(yarn workspaces list --json)
-          SPA_LOCATIONS=$(echo "$WORKSPACES" | jq -r '.[] | select(.name | endswith("-spa")) | .location')
+          SPA_LOCATIONS="$(yarn workspaces list --json | jq -s -c '[.[] | select(.name) | .location]')"
           echo "spa_locations=$SPA_LOCATIONS" >> $GITHUB_OUTPUT
       - name: find modified SPAs
         id: find_modified_spas
@@ -37,7 +36,7 @@ jobs:
             fi
             MODIFIED_SPAS+=("$SPA_LOCATION")
           done
-          MODIFIED_SPAS_JSON=$(jq -n --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')
+          MODIFIED_SPAS_JSON="$(jq -n -c --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')"
           echo "modified_spas=$MODIFIED_SPAS_JSON" >> $GITHUB_OUTPUT
   
   # matrix over modified SPAs to deploy
