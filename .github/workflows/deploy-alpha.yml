@@ -37,10 +37,10 @@ jobs:
   # matrix over modified SPAs to deploy
   build-spas:
     needs: find-modified-spas
-    uses: .github/template-publish-spas.yml
+    uses: './.github/workflows/template-publish-spas.yml'
     with:
-      CDN_URL: ${{ variables.CDN_URL }}
-      CDN_BUCKET: ${{ variables.CDN_AWS_BUCKET_NAME }}
+      CDN_URL: ${{ vars.CDN_URL }}
+      CDN_BUCKET: ${{ vars.CDN_AWS_BUCKET_NAME }}
       SPA_PACKAGES: ${{ needs.find-modified-spas.outputs.modified_spas }}
       ALPHA_RELEASE: true
     secrets:
@@ -49,10 +49,10 @@ jobs:
 
   deploy-web:
     needs: build-spas
-    uses: .github/template-deploy-web.yml
+    uses: './.github/workflows/template-deploy-web.yml'
     with:
-      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ variables.CLOUDFRONT_ROOT_DISTRIBUTION }}
-      ROOT_BUCKET: ${{ variables.ROOT_AWS_BUCKET_NAME }}
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}
+      ROOT_BUCKET: ${{ vars.ROOT_AWS_BUCKET_NAME }}
       SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
       ROOT_SPA_PATH: 'packages/Web/Root'
     secrets:

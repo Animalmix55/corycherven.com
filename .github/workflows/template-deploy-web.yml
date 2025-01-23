@@ -22,11 +22,11 @@ on:
         description: 'The path to the root SPA'
       AWS_REGION:
         type: string
-        required: true
+        required: false
         default: 'us-east-1'
       OUTPUT_DIR:
         type: string
-        required: true
+        required: false
         description: 'The directory where the built web-root is located relative to HOME_SPA_URL (e.g. dist/)'
         default: 'dist/'
     secrets:
