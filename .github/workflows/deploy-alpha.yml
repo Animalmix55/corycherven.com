@@ -2,9 +2,15 @@ name: Deploy Alpha
 
 on:
   workflow_dispatch:
+    inputs:
+      ENVIRONMENT:
+        description: 'The environment to deploy to'
+        required: true
+        default: 'production'
 
 jobs:
   find-modified-spas:
+    environment: ${{ inputs.ENVIRONMENT }}
     outputs:
       modified_spas: ${{ steps.find_modified_spas.outputs.modified_spas }} # space-separated list of modified SPA paths
     runs-on: ubuntu-latest
