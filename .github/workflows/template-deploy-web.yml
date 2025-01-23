@@ -1,4 +1,4 @@
-name: Deploy Web
+name: "[TEMPLATE] Deploy Web"
 
 on:
   workflow_call:
