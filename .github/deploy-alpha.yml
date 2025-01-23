@@ -1,0 +1,60 @@
+name: Deploy Alpha
+
+on:
+  workflow_dispatch:
+
+jobs:
+  find-modified-spas:
+    outputs:
+      modified_spas: ${{ steps.find_modified_spas.outputs.modified_spas }} # space-separated list of modified SPA paths
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Find SPAs
+        id: find_spas
+        # outputs a JSON list of SPA locations
+        run: |
+          WORKSPACES=$(yarn workspaces list --json)
+          SPA_LOCATIONS=$(echo "$WORKSPACES" | jq -r '.[] | select(.name | endswith("-spa")) | .location')
+          echo "spa_locations=$SPA_LOCATIONS" >> $GITHUB_OUTPUT
+      - name: find modified SPAs
+        id: find_modified_spas
+        # output space-delimited modified SPA paths compared to the main branch
+        run: |
+          MODIFIED_SPAS=()
+          for SPA_LOCATION in $(echo "${{ steps.find_spas.outputs.spa_locations }}" | tr ' ' '\n'); do
+            if git diff --quiet origin/main...HEAD -- $SPA_LOCATION; then
+              continue
+            fi
+            MODIFIED_SPAS+=("$SPA_LOCATION")
+          done
+          MODIFIED_SPAS_JSON=$(jq -n --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')
+          echo "modified_spas=$MODIFIED_SPAS_JSON" >> $GITHUB_OUTPUT
+  
+  # matrix over modified SPAs to deploy
+  build-spas:
+    needs: find-modified-spas
+    uses: .github/template-publish-spas.yml
+    with:
+      CDN_URL: ${{ variables.CDN_URL }}
+      CDN_BUCKET: ${{ variables.CDN_AWS_BUCKET_NAME }}
+      SPA_PACKAGES: ${{ needs.find-modified-spas.outputs.modified_spas }}
+      ALPHA_RELEASE: true
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+
+  deploy-web:
+    needs: build-spas
+    uses: .github/template-deploy-web.yml
+    with:
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ variables.CLOUDFRONT_ROOT_DISTRIBUTION }}
+      ROOT_BUCKET: ${{ variables.ROOT_AWS_BUCKET_NAME }}
+      SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
+      ROOT_SPA_PATH: 'packages/Web/Root'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}

@@ -1,0 +1,170 @@
+name: Publish SPAs
+
+on:
+  workflow_call:
+    inputs:
+      CDN_URL:
+        type: string
+        required: true
+        description: 'The URL of the CDN to publish the SPAs to (e.g. https://d1z2x3c4v5.cloudfront.net)'
+      CDN_BUCKET:
+        type: string
+        required: true
+      SPA_PACKAGES:
+        type: string
+        required: true
+        description: 'A json array of SPA package names to publish (e.g. ["@cory/web-home", "@cory/web-about"])'
+      ALPHA_RELEASE:
+        type: boolean
+        required: true
+        description: 'Whether to make the release version alpha'
+        default: false
+      AWS_REGION:
+        type: string
+        required: true
+        default: 'us-east-1'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+        description: 'AWS Access Key ID'
+      AWS_ACCESS_KEY_SECRET:
+        required: true
+        description: 'AWS Access Key Secret'
+    outputs:
+      source_map_overrides: ${{ steps.compile-sourcemap.outputs.source_map_overrides }}
+    
+jobs:
+  # create a JSON file indexed by SPA package name with the source map override URL as a placeholder
+  create-sourcemap-override-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create source map override file
+        id: create_source_map_override_file
+        working-directory: $GITHUB_WORKSPACE
+        run: |
+          echo '{}' > $GITHUB_WORKSPACE/source-map-overrides.json
+      - name: Upload source map override file
+        uses: actions/upload-artifact@v2
+        with:
+          name: source-map-overrides
+          path: $GITHUB_WORKSPACE/source-map-overrides.json
+
+  publish-spa:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        spa_package: ${{ fromJson(inputs.SPA_PACKAGES) }}
+    name: Build/Publish ${{ matrix.spa_package }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+        # use yarn to find the package path
+      - name: Get directory
+        id: get_directory
+        run: |
+          WORKSPACES=$(yarn workspaces list --json)
+          SPA_LOCATION=$(echo "$WORKSPACES" | jq -r '.[] | select(.name == "${{ matrix.spa_package }}") | .location')
+          echo "spa_location=$SPA_LOCATION" >> $GITHUB_OUTPUT
+
+      - name: Extract package metadata
+        id: extract_package_metadata
+        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        run: |
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          PACKAGE_VERSION=$(jq -r '.version' package.json)
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Increment alpha version
+        id: increment_version
+        if: ${{ inputs.ALPHA_RELEASE }}
+        run: |
+          VERSION=${{ steps.extract_package_metadata.outputs.package_version }}
+          ALPHA_RELEASE=${{ inputs.ALPHA_RELEASE }}
+          BUILD_IDENTIFIER=${GITHUB_RUN_NUMBER}
+          IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
+          PATCH_VERSION=${VERSION_PARTS[2]}
+          NEW_PATCH_VERSION=$((PATCH_VERSION + 1))
+          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$NEW_PATCH_VERSION-alpha.${BUILD_IDENTIFIER}"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Output package version
+        id: output_package_version
+        run: |
+          if [ -z "${{ steps.increment_version.outputs.new_version }}" ]; then
+            echo "package_version=${{ steps.extract_package_metadata.outputs.package_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "package_version=${{ steps.increment_version.outputs.new_version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Build SPA
+        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        run: yarn build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          aws-region: ${{ inputs.AWS_REGION }}
+
+      - name: Get new path in bucket
+        id: get_new_path
+        run: |
+          PACKAGE_BUCKET_PATH=${{ steps.extract-package_metadata.outputs.package_name }}/${{ steps.output_package_version.outputs.package_version }}
+          echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload SPA to S3
+        run: aws s3 sync ${{ steps.get_directory.outputs.spa_location }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
+
+      - name: Retrieve source map override file
+        uses: actions/download-artifact@v2
+        with:
+          name: source-map-overrides
+
+      - name: Update source map overrides
+        id: update_source_map_overrides
+        run: |
+          SPA_PACKAGE=${{ matrix.spa_package }}
+          PACKAGE_VERSION=${{ steps.output_package_version.outputs.package_version }}
+          PACKAGE_BUCKET_PATH=${{ steps.get_new_path.outputs.package_bucket_path }}
+          SOURCE_MAP_OVERRIDE_FILE=$GITHUB_WORKSPACE/source-map-overrides.json
+          jq --argjson overrides "{\"$SPA_PACKAGE\": \"${{ inputs.CDN_URL }}/$PACKAGE_BUCKET_PATH\"}" '
+            . as $imports |
+            $overrides | to_entries | reduce .[] as $item (
+              $imports;
+              .[$item.key] = $item.value
+            ) | {imports: .}
+          ' $SOURCE_MAP_OVERRIDE_FILE > $SOURCE_MAP_OVERRIDE_FILE.tmp
+          mv $SOURCE_MAP_OVERRIDE_FILE.tmp $SOURCE_MAP_OVERRIDE_FILE
+
+      - name: Upload updated source map overrides
+        uses: actions/upload-artifact@v2
+        with:
+          name: source-map-overrides
+          path: $GITHUB_WORKSPACE/source-map-overrides.json
+
+  compile-sourcemap:
+    runs-on: ubuntu-latest
+    needs: publish-spa
+    steps:
+      - name: Download source map overrides
+        uses: actions/download-artifact@v2
+        with:
+          name: source-map-overrides
+
+      - name: Add source map to output
+        id: output_as_json
+        run: |
+          SOURCE_MAP_OVERRIDES=$(cat $GITHUB_WORKSPACE/source-map-overrides.json)
+          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_OUTPUT
