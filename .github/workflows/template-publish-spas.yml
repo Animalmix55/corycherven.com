@@ -161,5 +161,6 @@ jobs:
       - name: Add source map to output
         id: output_as_json
         run: |
-          SOURCE_MAP_OVERRIDES=$(cat source-map-overrides.json)
-          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_OUTPUT
+          SOURCE_MAP_OVERRIDES_ONELINE=$(cat source-map-overrides.json | jq -c .)
+          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES_ONELINE" >> $GITHUB_OUTPUT
+          echo "Source Map Overrides: $SOURCE_MAP_OVERRIDES_ONELINE"
