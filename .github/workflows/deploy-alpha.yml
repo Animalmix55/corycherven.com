@@ -56,13 +56,26 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
 
+  get-env:
+    outputs:
+      root_distribution: ${{ steps.get_env.outputs.root_distribution }}
+      root_bucket: ${{ steps.get_env.outputs.root_bucket }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.ENVIRONMENT }}
+    steps:
+      - name: Get environment variables
+        id: get_env
+        run: |
+          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }} >> $GITHUB_OUTPUT
+          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }} >> $GITHUB_OUTPUT
+
   deploy-web:
-    needs: build-spas
+    needs: [build-spas, get-env]
     if: ${{ needs.build-spas.outputs.source_map_overrides != '{}' }}
     uses: './.github/workflows/template-deploy-web.yml'
     with:
-      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}
-      ROOT_BUCKET: ${{ vars.ROOT_AWS_BUCKET_NAME }}
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ needs.get-env.outputs.root_distribution }}
+      ROOT_BUCKET: ${{ needs.get-env.outputs.root_bucket }}
       SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
       ROOT_SPA_PATH: 'packages/Web/Root'
     secrets:

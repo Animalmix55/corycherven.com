@@ -59,7 +59,7 @@ jobs:
             ) | {imports: .}
           ' maps/importmap.json > maps/importmap.json.tmp
           mv maps/importmap.json.tmp maps/importmap.json
-          echo cat maps/importmap.json
+          cat maps/importmap.json
 
       # build the web-root
       - name: Build web-root
