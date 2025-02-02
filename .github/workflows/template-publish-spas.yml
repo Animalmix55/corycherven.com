@@ -134,5 +134,6 @@ jobs:
         id: create_importmap_overrides
         run: |
             package_names=${{ toJson(fromJson(steps.read.outputs).package_name) }}
-            overrides=$(jq -n '${{ steps.read.outputs }} as $object | $object.package_name | to_entries | map({key: .value, value: $object.bucket_path[.key]}) | from_entries')
+            overrides=$(jq -n '${{ steps.read.outputs }} as $object | $object.package_name | to_entries | map({key: .value, value: $object.bucket_path[.key]}) | from_entries' -c)
             echo "source_map_overrides=$overrides" >> $GITHUB_OUTPUT
+            echo "Output: $overrides"
