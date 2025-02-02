@@ -42,14 +42,13 @@ jobs:
     steps:
       - name: Create source map override file
         id: create_source_map_override_file
-        working-directory: $GITHUB_WORKSPACE
         run: |
-          echo '{}' > $GITHUB_WORKSPACE/source-map-overrides.json
+          echo '{}' > source-map-overrides.json
       - name: Upload source map override file
         uses: actions/upload-artifact@v4
         with:
           name: source-map-overrides
-          path: $GITHUB_WORKSPACE/source-map-overrides.json
+          path: source-map-overrides.json
 
   publish-spa:
     runs-on: ubuntu-latest
@@ -140,7 +139,7 @@ jobs:
           SPA_PACKAGE=${{ matrix.spa_package }}
           PACKAGE_VERSION=${{ steps.output_package_version.outputs.package_version }}
           PACKAGE_BUCKET_PATH=${{ steps.get_new_path.outputs.package_bucket_path }}
-          SOURCE_MAP_OVERRIDE_FILE=$GITHUB_WORKSPACE/source-map-overrides.json
+          SOURCE_MAP_OVERRIDE_FILE=source-map-overrides.json
           jq --argjson overrides "{\"$SPA_PACKAGE\": \"${{ inputs.CDN_URL }}/$PACKAGE_BUCKET_PATH\"}" '
             . as $imports |
             $overrides | to_entries | reduce .[] as $item (
@@ -154,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: source-map-overrides
-          path: $GITHUB_WORKSPACE/source-map-overrides.json
+          path: source-map-overrides.json
 
   compile-sourcemap:
     runs-on: ubuntu-latest
@@ -170,5 +169,5 @@ jobs:
       - name: Add source map to output
         id: output_as_json
         run: |
-          SOURCE_MAP_OVERRIDES=$(cat $GITHUB_WORKSPACE/source-map-overrides.json)
+          SOURCE_MAP_OVERRIDES=$(cat source-map-overrides.json)
           echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_OUTPUT
