@@ -128,12 +128,9 @@ jobs:
         with:
           matrix-step-name: "build-spas"
 
-      # shape ex: {"package_name":{"packages/Web/Home":"@cory/web-home-spa","packages/Web/Root":"@cory/web-root"},"bucket_path":{"packages/Web/Home":"@cory/web-home-spa/0.0.2-alpha.21","packages/Web/Root":"@cory/web-root/0.0.2-alpha.21"}}
-      # output ex: {"@cory/web-home-spa":"@cory/web-home-spa/0.0.2-alpha.21","@cory/web-root":"@cory/web-root/0.0.2-alpha.21"}
       - name: Create importmap overrides
         id: create_importmap_overrides
         run: |
-            package_names=${{ toJson(fromJson(steps.read.outputs).package_name) }}
             overrides=$(jq -n '${{ steps.read.outputs }} as $object | $object.package_name | to_entries | map({key: .value, value: $object.bucket_path[.key]}) | from_entries' -c)
             echo "source_map_overrides=$overrides" >> $GITHUB_OUTPUT
             echo "Output: $overrides"
