@@ -33,7 +33,7 @@ jobs:
         # output space-delimited modified SPA paths compared to the main branch
         run: |
             MODIFIED_SPAS=()
-            for SPA_LOCATION in $(echo "${{ steps.find_spas.outputs.spa_locations }}" | jq -r '.[]'); do
+            for SPA_LOCATION in $(echo '${{ steps.find_spas.outputs.spa_locations }}' | jq -r '.[]'); do
             if git diff --name-only origin/main...HEAD -- $SPA_LOCATION | grep -q .; then
               MODIFIED_SPAS+=("$SPA_LOCATION")
             fi
