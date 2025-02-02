@@ -14,7 +14,7 @@ on:
       SOURCEMAP_OVERRIDES:
         type: string
         required: true
-        description: 'A json object that maps spa package names to their source map override URLs'
+        description: 'A json object that maps spa package names to their source map override URLs, eg. { "@cory/app1": "https://example.com/app1.js" }'
         default: '{}'
       ROOT_SPA_PATH:
         type: string
@@ -52,13 +52,14 @@ jobs:
         working-directory: ${{ inputs.ROOT_SPA_PATH }}
         run: |
           jq --argjson overrides '${{ inputs.SOURCEMAP_OVERRIDES }}' '
-            .imports as $imports |
+            . as $imports |
             $overrides | to_entries | reduce .[] as $item (
               $imports;
               .[$item.key] = $item.value
             ) | {imports: .}
           ' maps/importmap.json > maps/importmap.json.tmp
           mv maps/importmap.json.tmp maps/importmap.json
+          echo cat maps/importmap.json
 
       # build the web-root
       - name: Build web-root

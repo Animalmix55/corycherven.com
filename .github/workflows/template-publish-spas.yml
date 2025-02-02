@@ -32,30 +32,18 @@ on:
         description: 'AWS Access Key Secret'
     outputs:
       source_map_overrides:
-        value: ${{ jobs.compile-sourcemap.outputs.source_map_overrides }}
+        value: ${{ jobs.publish-spa.outputs.source_map_overrides }}
         description: 'A json object that maps spa package names to their source map override URLs'
     
 jobs:
-  # create a JSON file indexed by SPA package name with the source map override URL as a placeholder
-  create-sourcemap-override-file:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create source map override file
-        id: create_source_map_override_file
-        run: |
-          echo '{}' > source-map-overrides.json
-      - name: Upload source map override file
-        uses: actions/upload-artifact@v4
-        with:
-          name: source-map-overrides
-          path: source-map-overrides.json
-
   publish-spa:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         spa_path: ${{ fromJson(inputs.SPA_PATHS) }}
     name: Build/Publish ${{ matrix.spa_path }}
+    outputs:
+      source_map_overrides: ${{ steps.update_source_map_overrides.outputs.source_map_overrides }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -120,47 +108,15 @@ jobs:
       - name: Upload SPA to S3
         run: aws s3 sync ${{ matrix.spa_path }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
 
-      - name: Retrieve source map override file
-        uses: actions/download-artifact@v4
-        with:
-          name: source-map-overrides
-
+      # source map overrides are shaped as { "package-name": "cdn-url/bucket-path" }
       - name: Update source map overrides
         id: update_source_map_overrides
         run: |
           SPA_PACKAGE=${{ steps.extract_package_metadata.outputs.package_name }}
           PACKAGE_VERSION=${{ steps.output_package_version.outputs.package_version }}
           PACKAGE_BUCKET_PATH=${{ steps.get_new_path.outputs.package_bucket_path }}
-          SOURCE_MAP_OVERRIDE_FILE=source-map-overrides.json
-          jq --argjson overrides "{\"$SPA_PACKAGE\": \"${{ inputs.CDN_URL }}/$PACKAGE_BUCKET_PATH\"}" '
-            . as $imports |
-            $overrides | to_entries | reduce .[] as $item (
-              $imports;
-              .[$item.key] = $item.value
-            ) | {imports: .}
-          ' $SOURCE_MAP_OVERRIDE_FILE > $SOURCE_MAP_OVERRIDE_FILE.tmp
-          mv $SOURCE_MAP_OVERRIDE_FILE.tmp $SOURCE_MAP_OVERRIDE_FILE
-
-      - name: Upload updated source map overrides
-        uses: actions/upload-artifact@v4
-        with:
-          name: source-map-overrides
-          path: source-map-overrides.json
-
-  compile-sourcemap:
-    runs-on: ubuntu-latest
-    needs: publish-spa
-    outputs:
-      source_map_overrides: ${{ steps.output_as_json.outputs.source_map_overrides }}
-    steps:
-      - name: Download source map overrides
-        uses: actions/download-artifact@v4
-        with:
-          name: source-map-overrides
-
-      - name: Add source map to output
-        id: output_as_json
-        run: |
-          SOURCE_MAP_OVERRIDES_ONELINE=$(cat source-map-overrides.json | jq -c .)
-          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES_ONELINE" >> $GITHUB_OUTPUT
-          echo "Source Map Overrides: $SOURCE_MAP_OVERRIDES_ONELINE"
+          SOURCE_MAP_OVERRIDES_JSON=${{ env.SOURCE_MAP_OVERRIDES || '{}' }}
+          SOURCE_MAP_OVERRIDES=$(echo $SOURCE_MAP_OVERRIDES_JSON | jq --arg spa_package $SPA_PACKAGE --arg package_bucket_path $PACKAGE_BUCKET_PATH -c '.[$spa_package] = $package_bucket_path')
+          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_ENV
+          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_OUTPUT
+          echo "Source Map Overrides: $SOURCE_MAP_OVERRIDES"
