@@ -52,7 +52,7 @@ jobs:
         working-directory: ${{ inputs.ROOT_SPA_PATH }}
         run: |
           jq --argjson overrides '${{ inputs.SOURCEMAP_OVERRIDES }}' '
-            . as $imports |
+            .imports as $imports |
             $overrides | to_entries | reduce .[] as $item (
               $imports;
               .[$item.key] = $item.value

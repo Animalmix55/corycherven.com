@@ -66,8 +66,8 @@ jobs:
       - name: Get environment variables
         id: get_env
         run: |
-          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }} >> $GITHUB_OUTPUT
-          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }} >> $GITHUB_OUTPUT
+          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }} >> $GITHUB_OUTPUT"
+          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }} >> $GITHUB_OUTPUT"
 
   deploy-web:
     needs: [build-spas, get-env]
