@@ -50,7 +50,7 @@ jobs:
     with:
       CDN_URL: ${{ vars.CDN_URL }}
       CDN_BUCKET: ${{ vars.CDN_AWS_BUCKET_NAME }}
-      SPA_PACKAGES: ${{ needs.find-modified-spas.outputs.modified_spas }}
+      SPA_PATHS: ${{ needs.find-modified-spas.outputs.modified_spas }}
       ALPHA_RELEASE: true
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

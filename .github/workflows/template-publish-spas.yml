@@ -10,10 +10,10 @@ on:
       CDN_BUCKET:
         type: string
         required: true
-      SPA_PACKAGES:
+      SPA_PATHS:
         type: string
         required: true
-        description: 'A json array of SPA package names to publish (e.g. ["@cory/web-home", "@cory/web-about"])'
+        description: 'A json array of SPA package paths to publish (e.g. ["packages/app1", "packages/app2"])'
       ALPHA_RELEASE:
         type: boolean
         required: false
@@ -54,8 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        spa_package: ${{ fromJson(inputs.SPA_PACKAGES) }}
-    name: Build/Publish ${{ matrix.spa_package }}
+        spa_path: ${{ fromJson(inputs.SPA_PATHS) }}
+    name: Build/Publish ${{ matrix.spa_path }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -63,17 +63,12 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-        # use yarn to find the package path
-      - name: Get directory
-        id: get_directory
-        run: |
-          SPA_LOCATION=$(yarn workspaces list --json | jq -s -c '[.[] | select(.name == "${{ matrix.spa_package }}") | .location]')
-          echo "spa_location=$SPA_LOCATION" >> $GITHUB_OUTPUT
-
       - name: Extract package metadata
         id: extract_package_metadata
-        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        working-directory: ${{ matrix.spa_path }}
         run: |
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           PACKAGE_VERSION=$(jq -r '.version' package.json)
           echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
@@ -106,7 +101,7 @@ jobs:
           cache: 'yarn'
 
       - name: Build SPA
-        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        working-directory: ${{ matrix.spa_path }}
         run: yarn build
 
       - name: Configure AWS credentials
@@ -119,11 +114,11 @@ jobs:
       - name: Get new path in bucket
         id: get_new_path
         run: |
-          PACKAGE_BUCKET_PATH=${{ matrix.spa_package }}/${{ steps.output_package_version.outputs.package_version }}
+          PACKAGE_BUCKET_PATH=${{ steps.extract_package_metadata.outputs.package_name }}/${{ steps.output_package_version.outputs.package_version }}
           echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload SPA to S3
-        run: aws s3 sync ${{ steps.get_directory.outputs.spa_location }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
+        run: aws s3 sync ${{ matrix.spa_path }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
 
       - name: Retrieve source map override file
         uses: actions/download-artifact@v4
@@ -133,7 +128,7 @@ jobs:
       - name: Update source map overrides
         id: update_source_map_overrides
         run: |
-          SPA_PACKAGE=${{ matrix.spa_package }}
+          SPA_PACKAGE=${{ steps.extract_package_metadata.outputs.package_name }}
           PACKAGE_VERSION=${{ steps.output_package_version.outputs.package_version }}
           PACKAGE_BUCKET_PATH=${{ steps.get_new_path.outputs.package_bucket_path }}
           SOURCE_MAP_OVERRIDE_FILE=source-map-overrides.json
