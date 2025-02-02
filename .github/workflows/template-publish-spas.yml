@@ -32,7 +32,7 @@ on:
         description: 'AWS Access Key Secret'
     outputs:
       source_map_overrides:
-        value: ${{ jobs.publish-spa.outputs.source_map_overrides }}
+        value: ${{ jobs.coalesce-spa-outputs.outputs.source_map_overrides }}
         description: 'A json object that maps spa package names to their source map override URLs'
     
 jobs:
@@ -42,8 +42,6 @@ jobs:
       matrix:
         spa_path: ${{ fromJson(inputs.SPA_PATHS) }}
     name: Build/Publish ${{ matrix.spa_path }}
-    outputs:
-      source_map_overrides: ${{ steps.update_source_map_overrides.outputs.source_map_overrides }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -122,12 +120,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: publish-spa
     name: Coalesce SPA outputs
+    outputs:
+      source_map_overrides: ${{ steps.create_importmap_overrides.outputs.source_map_overrides }}
     steps:
       - uses: cloudposse/github-action-matrix-outputs-read@v1
         id: read
         with:
           matrix-step-name: "build-spas"
 
-      - name: Output results
+      # shape ex: {"package_name":{"packages/Web/Home":"@cory/web-home-spa","packages/Web/Root":"@cory/web-root"},"bucket_path":{"packages/Web/Home":"@cory/web-home-spa/0.0.2-alpha.21","packages/Web/Root":"@cory/web-root/0.0.2-alpha.21"}}
+      # output ex: {"@cory/web-home-spa":"@cory/web-home-spa/0.0.2-alpha.21","@cory/web-root":"@cory/web-root/0.0.2-alpha.21"}
+      - name: Create importmap overrides
+        id: create_importmap_overrides
         run: |
-          echo ${{ steps.read.outputs.result }}
+            package_names=${{ toJson(fromJson(steps.read.outputs).package_name) }}
+            overrides=$(jq -n '${{ steps.read.outputs }} as $object | $object.package_name | to_entries | map({key: .value, value: $object.bucket_path[.key]}) | from_entries')
+            echo "source_map_overrides=$overrides" >> $GITHUB_OUTPUT
