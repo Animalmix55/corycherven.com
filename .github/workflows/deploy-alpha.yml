@@ -40,6 +40,7 @@ jobs:
           done
           MODIFIED_SPAS_JSON="$(jq -n -c --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')"
           echo "modified_spas=$MODIFIED_SPAS_JSON" >> $GITHUB_OUTPUT
+          echo "Modified SPAs: $MODIFIED_SPAS_JSON"
   
   # matrix over modified SPAs to deploy
   build-spas:
