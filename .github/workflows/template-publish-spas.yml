@@ -67,16 +67,13 @@ jobs:
       - name: Get directory
         id: get_directory
         run: |
-          WORKSPACES=$(yarn workspaces list --json)
-          SPA_LOCATION=$(echo "$WORKSPACES" | jq -r '.[] | select(.name == "${{ matrix.spa_package }}") | .location')
+          SPA_LOCATION=$(yarn workspaces list --json | jq -s -c '[.[] | select(.name == "${{ matrix.spa_package }}") | .location]')
           echo "spa_location=$SPA_LOCATION" >> $GITHUB_OUTPUT
 
       - name: Extract package metadata
         id: extract_package_metadata
         working-directory: ${{ steps.get_directory.outputs.spa_location }}
         run: |
-          PACKAGE_NAME=$(jq -r '.name' package.json)
-          echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           PACKAGE_VERSION=$(jq -r '.version' package.json)
           echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
@@ -122,7 +119,7 @@ jobs:
       - name: Get new path in bucket
         id: get_new_path
         run: |
-          PACKAGE_BUCKET_PATH=${{ steps.extract_package_metadata.outputs.package_name }}/${{ steps.output_package_version.outputs.package_version }}
+          PACKAGE_BUCKET_PATH=${{ matrix.spa_package }}/${{ steps.output_package_version.outputs.package_version }}
           echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload SPA to S3
