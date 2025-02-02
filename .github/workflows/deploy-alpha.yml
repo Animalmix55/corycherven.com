@@ -27,6 +27,7 @@ jobs:
         run: |
           SPA_LOCATIONS="$(yarn workspaces list --json | jq -s -c '[.[] | select(.name) | .location]')"
           echo "spa_locations=$SPA_LOCATIONS" >> $GITHUB_OUTPUT
+          echo "SPA Locations: $SPA_LOCATIONS"
       - name: find modified SPAs
         id: find_modified_spas
         # output space-delimited modified SPA paths compared to the main branch
