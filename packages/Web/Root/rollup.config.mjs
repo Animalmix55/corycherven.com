@@ -16,23 +16,23 @@ const options = {
     output: {
         file: 'dist/index.js',
         format: 'system',
-        sourcemap: true,
+        sourcemap: true
     },
     plugins: [
         resolve({
-            browser: true,
+            browser: true
         }),
         commonjs(),
         // copy maps/*.json to dist/maps/*.json
         copyPlugin({
-            targets: [{ src: 'maps/*.json', dest: 'dist/maps' }],
+            targets: [{ src: 'maps/*.json', dest: 'dist/maps' }]
         }),
         typescript(),
         emitEjs({
             src: 'src',
             data: {
-                isLocal: isDev,
-            },
+                isLocal: isDev
+            }
         }),
 
         // minify
@@ -44,14 +44,14 @@ const options = {
                   serve({
                       open: true,
                       contentBase: 'dist',
-                      port: 5000,
+                      port: 5000
                   }),
                   livereload({
-                      watch: ['dist', 'maps'],
-                  }),
+                      watch: ['dist', 'maps']
+                  })
               ]
-            : []),
-    ],
+            : [])
+    ]
 };
 
 export default options;

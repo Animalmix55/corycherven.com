@@ -18,35 +18,35 @@ const options = {
     output: {
         dir: 'dist',
         format: 'system',
-        sourcemap: true,
+        sourcemap: true
     },
     external: ['react', 'react-dom', /^@cory/],
     plugins: [
         resolve({
-            browser: true,
+            browser: true
         }),
         commonjs(),
         typescript(),
         image({
             // svg
-            exclude: ['**/*.svg'],
+            exclude: ['**/*.svg']
         }),
         postcss({
             plugins: [
                 postcssUrl({
-                    url: 'inline',
-                }),
-            ],
+                    url: 'inline'
+                })
+            ]
         }),
         nodePolyfills({
-            include: [/.yarn\/cache/, /node_modules/],
+            include: [/.yarn\/cache/, /node_modules/]
         }),
         replace({
             'process.env.NODE_ENV': isDev
                 ? JSON.stringify('development')
                 : JSON.stringify('production'),
             'process.version': JSON.stringify(process.version),
-            preventAssignment: true,
+            preventAssignment: true
         }),
 
         // minify
@@ -60,12 +60,12 @@ const options = {
                       port: 5001,
                       historyApiFallback: '/index.js',
                       headers: {
-                          'Access-Control-Allow-Origin': '*',
-                      },
-                  }),
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  })
               ]
-            : []),
-    ],
+            : [])
+    ]
 };
 
 export default options;
