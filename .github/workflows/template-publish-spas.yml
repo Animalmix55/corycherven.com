@@ -23,6 +23,16 @@ on:
         type: string
         required: false
         default: 'us-east-1'
+      SPA_DIST_DIR:
+        type: string
+        required: false
+        default: 'dist'
+        description: 'The directory where the built SPA is located relative to the SPA package directory'
+      ENTRYPOINT_FILE_NAME:
+        type: string
+        required: false
+        default: 'index.js'
+        description: 'The name of the entrypoint file for the SPA in the output directory'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -104,9 +114,9 @@ jobs:
           echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload SPA to S3
-        run: aws s3 sync ${{ matrix.spa_path }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
+        run: aws s3 sync ${{ matrix.spa_path }}/${{ inputs.SPA_DIST_DIR }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
 
-      ## Write for matrix outputs workaround as YAML
+      ## Write for matrix outputs workaround as YAML, assume the entrypoint is index.js
       - uses: cloudposse/github-action-matrix-outputs-write@v1
         id: output-results
         with:
@@ -114,7 +124,7 @@ jobs:
           matrix-key: ${{ matrix.spa_path }}
           outputs: |-
             package_name: "${{ steps.extract_package_metadata.outputs.package_name }}"
-            bucket_path: "${{ steps.get_new_path.outputs.package_bucket_path }}"
+            cdn_url: "${{ vars.CDN_URL }}/${{ steps.get_new_path.outputs.package_bucket_path }}/${{ inputs.ENTRYPOINT_FILE_NAME }}"
 
   coalesce-spa-outputs:
     runs-on: ubuntu-latest

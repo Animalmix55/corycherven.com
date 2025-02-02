@@ -23,9 +23,8 @@ jobs:
         run: sudo apt-get install -y jq
       - name: Find SPAs
         id: find_spas
-        # outputs a JSON list of SPA locations, excluding the root package
         run: |
-          SPA_LOCATIONS="$(yarn workspaces list --json | jq -s -c '[.[] | select(.name != "@cory/root") | .location]')"
+          SPA_LOCATIONS="$(yarn workspaces list --json | jq -s -c '[.[] | select(.name | endswith("-spa")) | .location]')"
           echo "spa_locations=$SPA_LOCATIONS" >> $GITHUB_OUTPUT
           echo "SPA Locations: $SPA_LOCATIONS"
       - name: find modified SPAs
