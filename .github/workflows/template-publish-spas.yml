@@ -112,7 +112,7 @@ jobs:
       - uses: cloudposse/github-action-matrix-outputs-write@v1
         id: output-results
         with:
-          matrix-step-name: ${{ github.job }}
+          matrix-step-name: "build-spas"
           matrix-key: ${{ matrix.spa_path }}
           outputs: |-
             package_name: "${{ steps.extract_package_metadata.outputs.package_name }}"
@@ -126,8 +126,8 @@ jobs:
       - uses: cloudposse/github-action-matrix-outputs-read@v1
         id: read
         with:
-          matrix-step-name: ${{ github.job }}
+          matrix-step-name: "build-spas"
 
       - name: Output results
         run: |
-          echo ${{ toJson(steps.read.outputs.result) }}
+          echo ${{ steps.read.outputs.result }}
