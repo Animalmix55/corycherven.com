@@ -32,16 +32,15 @@ jobs:
         id: find_modified_spas
         # output space-delimited modified SPA paths compared to the main branch
         run: |
-          MODIFIED_SPAS=()
-          for SPA_LOCATION in $(echo "${{ steps.find_spas.outputs.spa_locations }}" | tr ' ' '\n'); do
-            if git diff --quiet origin/main...HEAD -- $SPA_LOCATION; then
-              continue
+            MODIFIED_SPAS=()
+            for SPA_LOCATION in $(echo "${{ steps.find_spas.outputs.spa_locations }}" | jq -r '.[]'); do
+            if git diff --name-only origin/main...HEAD -- $SPA_LOCATION | grep -q .; then
+              MODIFIED_SPAS+=("$SPA_LOCATION")
             fi
-            MODIFIED_SPAS+=("$SPA_LOCATION")
-          done
-          MODIFIED_SPAS_JSON="$(jq -n -c --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')"
-          echo "modified_spas=$MODIFIED_SPAS_JSON" >> $GITHUB_OUTPUT
-          echo "Modified SPAs: $MODIFIED_SPAS_JSON"
+            done
+            MODIFIED_SPAS_JSON="$(jq -n -c --arg spas "${MODIFIED_SPAS[*]}" '$spas | split(" ")')"
+            echo "modified_spas=$MODIFIED_SPAS_JSON" >> $GITHUB_OUTPUT
+            echo "Modified SPAs: $MODIFIED_SPAS_JSON"
   
   # matrix over modified SPAs to deploy
   build-spas:
