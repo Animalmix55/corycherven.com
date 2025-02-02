@@ -45,6 +45,7 @@ jobs:
   # matrix over modified SPAs to deploy
   build-spas:
     needs: find-modified-spas
+    if: ${{ needs.find-modified-spas.outputs.modified_spas != '[]' }}
     uses: './.github/workflows/template-publish-spas.yml'
     with:
       CDN_URL: ${{ vars.CDN_URL }}
@@ -57,6 +58,7 @@ jobs:
 
   deploy-web:
     needs: build-spas
+    if: ${{ needs.build-spas.outputs.source_map_overrides != '{}' }}
     uses: './.github/workflows/template-deploy-web.yml'
     with:
       CLOUDFRONT_ROOT_DISTRIBUTION: ${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}
