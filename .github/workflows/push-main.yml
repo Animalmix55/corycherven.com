@@ -19,6 +19,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           include-component-in-tag: true
           config-file: release-please-config.json
+          target-branch: ${{ github.ref_name }}
       - name: Get SPA Paths
         id: get-spa-paths
         env:
