@@ -1,0 +1,103 @@
+name: Release on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-please:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      spa_paths_released: ${{ steps.get-spa-paths.outputs.value }}
+      root_distribution: ${{ steps.get_env.outputs.root_distribution }}
+      root_bucket: ${{ steps.get_env.outputs.root_bucket }}
+      prs_created: ${{ steps.release-please.outputs.prs_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        name: Release Please
+        id: release-please
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          include-component-in-tag: true
+          config-file: release-please-config.json
+          target-branch: ${{ github.ref_name }}
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Get SPA Paths
+        id: get-spa-paths
+        env:
+          RELEASES: "${{ toJson(steps.release-please.outputs.paths_released) }}"
+        # only include SPA paths that have been released (must end with "-spa")
+        run: |
+          SPA_PATHS=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]')
+          echo "value=$SPA_PATHS" >> $GITHUB_OUTPUT
+          echo "SPA Paths: $SPA_PATHS"
+      - name: Get environment variables
+        id: get_env
+        run: |
+          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}" >> $GITHUB_OUTPUT
+          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
+
+  update-pull-request:
+    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
+    needs: release-please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetching the repository
+        uses: actions/checkout@v2
+        with:
+          # release-please--branches-- plus the branch name
+          ref: release-please--branches--${{ github.ref_name }}
+          fetch-depth: 2
+      - name: Updating yarn.lock file
+        run: yarn install --mode=update-lockfile
+      - name: Merging changes with last commit
+        continue-on-error: true
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git reset --soft HEAD~1
+          git add .
+          git commit -am "chore: update lockfile"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release-please--branches--${{ github.ref_name }}
+          force: true
+
+  # matrix over modified SPAs to deploy
+  build-spas:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.spa_paths_released != '[]' }}
+    uses: "./.github/workflows/template-publish-spas.yml"
+    with:
+      CDN_URL: ${{ vars.CDN_URL }}
+      CDN_BUCKET: ${{ vars.CDN_AWS_BUCKET_NAME }}
+      SPA_PATHS: ${{ needs.release-please.outputs.spa_paths_released }}
+      ALPHA_RELEASE: false
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+
+  deploy-web:
+    needs: [build-spas, release-please]
+    if: ${{ needs.build-spas.outputs.source_map_overrides != '{}' }}
+    uses: "./.github/workflows/template-deploy-web.yml"
+    with:
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ needs.release-please.outputs.root_distribution }}
+      ROOT_BUCKET: ${{ needs.release-please.outputs.root_bucket }}
+      SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
+      ROOT_SPA_PATH: "packages/Web/Root"
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
