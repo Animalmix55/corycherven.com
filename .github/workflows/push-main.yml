@@ -15,6 +15,10 @@ jobs:
     outputs:
       spa_paths_released: ${{ steps.get-spa-paths.outputs.value }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
       - uses: googleapis/release-please-action@v4
         name: Release Please
         id: release-please
