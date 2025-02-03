@@ -1,0 +1,69 @@
+name: On Push Main
+
+on:
+  push:
+    branches:
+      - main
+      - release-workflow # for testing
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      spa_paths_released: ${{ steps.get-spa-paths.outputs.value }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        name: Release Please
+        id: release-please
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          include-component-in-tag: true
+          config-file: release-please-config.json
+      - name: Get SPA Paths
+        id: get-spa-paths
+        env:
+          RELEASES: "${{ toJson(steps.release-please.outputs.paths_released) }}"
+        run: |
+          echo "value=$(jq -n -c 'env.RELEASES | fromjson as $object | ($object | fromjson) | map(select(. | match("-spa$")))')" >> $GITHUB_OUTPUT
+
+    # matrix over modified SPAs to deploy
+  build-spas:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.spa_paths_released != '[]' }}
+    uses: "./.github/workflows/template-publish-spas.yml"
+    with:
+      CDN_URL: ${{ vars.CDN_URL }}
+      CDN_BUCKET: ${{ vars.CDN_AWS_BUCKET_NAME }}
+      SPA_PATHS: ${{ needs.release-please.outputs.spa_paths_released }}
+      ALPHA_RELEASE: true
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+
+  get-env:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.spa_paths_released != '[]' }}
+    outputs:
+      root_distribution: ${{ steps.get_env.outputs.root_distribution }}
+      root_bucket: ${{ steps.get_env.outputs.root_bucket }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Get environment variables
+        id: get_env
+        run: |
+          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}" >> $GITHUB_OUTPUT
+          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
+
+  deploy-web:
+    needs: [build-spas, get-env]
+    if: ${{ needs.build-spas.outputs.source_map_overrides != '{}' }}
+    uses: "./.github/workflows/template-deploy-web.yml"
+    with:
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ needs.get-env.outputs.root_distribution }}
+      ROOT_BUCKET: ${{ needs.get-env.outputs.root_bucket }}
+      SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
+      ROOT_SPA_PATH: "packages/Web/Root"
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
