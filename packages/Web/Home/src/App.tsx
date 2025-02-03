@@ -7,4 +7,6 @@ export const App = (): React.ReactElement => (
     </div>
 );
 
+// comment!
+
 export default App;

@@ -10,10 +10,10 @@ on:
       CDN_BUCKET:
         type: string
         required: true
-      SPA_PACKAGES:
+      SPA_PATHS:
         type: string
         required: true
-        description: 'A json array of SPA package names to publish (e.g. ["@cory/web-home", "@cory/web-about"])'
+        description: 'A json array of SPA package paths to publish (e.g. ["packages/app1", "packages/app2"])'
       ALPHA_RELEASE:
         type: boolean
         required: false
@@ -23,6 +23,16 @@ on:
         type: string
         required: false
         default: 'us-east-1'
+      SPA_DIST_DIR:
+        type: string
+        required: false
+        default: 'dist'
+        description: 'The directory where the built SPA is located relative to the SPA package directory'
+      ENTRYPOINT_FILE_NAME:
+        type: string
+        required: false
+        default: 'index.js'
+        description: 'The name of the entrypoint file for the SPA in the output directory'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -32,31 +42,16 @@ on:
         description: 'AWS Access Key Secret'
     outputs:
       source_map_overrides:
-        value: ${{ jobs.compile-sourcemap.outputs.source_map_overrides }}
+        value: ${{ jobs.coalesce-spa-outputs.outputs.source_map_overrides }}
         description: 'A json object that maps spa package names to their source map override URLs'
     
 jobs:
-  # create a JSON file indexed by SPA package name with the source map override URL as a placeholder
-  create-sourcemap-override-file:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create source map override file
-        id: create_source_map_override_file
-        working-directory: $GITHUB_WORKSPACE
-        run: |
-          echo '{}' > $GITHUB_WORKSPACE/source-map-overrides.json
-      - name: Upload source map override file
-        uses: actions/upload-artifact@v2
-        with:
-          name: source-map-overrides
-          path: $GITHUB_WORKSPACE/source-map-overrides.json
-
   publish-spa:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        spa_package: ${{ fromJson(inputs.SPA_PACKAGES) }}
-    name: Build/Publish ${{ matrix.spa_package }}
+        spa_path: ${{ fromJson(inputs.SPA_PATHS) }}
+    name: Build/Publish ${{ matrix.spa_path }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -64,17 +59,9 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-        # use yarn to find the package path
-      - name: Get directory
-        id: get_directory
-        run: |
-          WORKSPACES=$(yarn workspaces list --json)
-          SPA_LOCATION=$(echo "$WORKSPACES" | jq -r '.[] | select(.name == "${{ matrix.spa_package }}") | .location')
-          echo "spa_location=$SPA_LOCATION" >> $GITHUB_OUTPUT
-
       - name: Extract package metadata
         id: extract_package_metadata
-        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        working-directory: ${{ matrix.spa_path }}
         run: |
           PACKAGE_NAME=$(jq -r '.name' package.json)
           echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
@@ -110,7 +97,7 @@ jobs:
           cache: 'yarn'
 
       - name: Build SPA
-        working-directory: ${{ steps.get_directory.outputs.spa_location }}
+        working-directory: ${{ matrix.spa_path }}
         run: yarn build
 
       - name: Configure AWS credentials
@@ -127,48 +114,33 @@ jobs:
           echo "package_bucket_path=$PACKAGE_BUCKET_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload SPA to S3
-        run: aws s3 sync ${{ steps.get_directory.outputs.spa_location }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
+        run: aws s3 sync ${{ matrix.spa_path }}/${{ inputs.SPA_DIST_DIR }}/ s3://${{ inputs.CDN_BUCKET }}/${{ steps.get_new_path.outputs.package_bucket_path }}
 
-      - name: Retrieve source map override file
-        uses: actions/download-artifact@v2
+      ## Write for matrix outputs workaround as YAML, assume the entrypoint is index.js
+      - uses: cloudposse/github-action-matrix-outputs-write@v1
+        id: output-results
         with:
-          name: source-map-overrides
+          matrix-step-name: "build-spas"
+          matrix-key: ${{ matrix.spa_path }}
+          outputs: |-
+            package_name: "${{ steps.extract_package_metadata.outputs.package_name }}"
+            cdn_url: "${{ vars.CDN_URL }}/${{ steps.get_new_path.outputs.package_bucket_path }}/${{ inputs.ENTRYPOINT_FILE_NAME }}"
 
-      - name: Update source map overrides
-        id: update_source_map_overrides
-        run: |
-          SPA_PACKAGE=${{ matrix.spa_package }}
-          PACKAGE_VERSION=${{ steps.output_package_version.outputs.package_version }}
-          PACKAGE_BUCKET_PATH=${{ steps.get_new_path.outputs.package_bucket_path }}
-          SOURCE_MAP_OVERRIDE_FILE=$GITHUB_WORKSPACE/source-map-overrides.json
-          jq --argjson overrides "{\"$SPA_PACKAGE\": \"${{ inputs.CDN_URL }}/$PACKAGE_BUCKET_PATH\"}" '
-            . as $imports |
-            $overrides | to_entries | reduce .[] as $item (
-              $imports;
-              .[$item.key] = $item.value
-            ) | {imports: .}
-          ' $SOURCE_MAP_OVERRIDE_FILE > $SOURCE_MAP_OVERRIDE_FILE.tmp
-          mv $SOURCE_MAP_OVERRIDE_FILE.tmp $SOURCE_MAP_OVERRIDE_FILE
-
-      - name: Upload updated source map overrides
-        uses: actions/upload-artifact@v2
-        with:
-          name: source-map-overrides
-          path: $GITHUB_WORKSPACE/source-map-overrides.json
-
-  compile-sourcemap:
+  coalesce-spa-outputs:
     runs-on: ubuntu-latest
     needs: publish-spa
+    name: Coalesce SPA outputs
     outputs:
-      source_map_overrides: ${{ steps.output_as_json.outputs.source_map_overrides }}
+      source_map_overrides: ${{ steps.create_importmap_overrides.outputs.source_map_overrides }}
     steps:
-      - name: Download source map overrides
-        uses: actions/download-artifact@v2
+      - uses: cloudposse/github-action-matrix-outputs-read@v1
+        id: read
         with:
-          name: source-map-overrides
+          matrix-step-name: "build-spas"
 
-      - name: Add source map to output
-        id: output_as_json
+      - name: Create importmap overrides
+        id: create_importmap_overrides
         run: |
-          SOURCE_MAP_OVERRIDES=$(cat $GITHUB_WORKSPACE/source-map-overrides.json)
-          echo "source_map_overrides=$SOURCE_MAP_OVERRIDES" >> $GITHUB_OUTPUT
+            overrides=$(jq -n '${{ steps.read.outputs.result }} as $object | $object.package_name | to_entries | map({key: .value, value: $object.cdn_url[.key]}) | from_entries' -c)
+            echo "source_map_overrides=$overrides" >> $GITHUB_OUTPUT
+            echo "Output: $overrides"

@@ -6,5 +6,5 @@ import { App } from './App';
 export const { bootstrap, mount, unmount } = singleSpaReact({
     React,
     ReactDOM,
-    rootComponent: App,
+    rootComponent: App
 });

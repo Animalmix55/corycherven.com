@@ -14,7 +14,7 @@ on:
       SOURCEMAP_OVERRIDES:
         type: string
         required: true
-        description: 'A json object that maps spa package names to their source map override URLs'
+        description: 'A json object that maps spa package names to their source map override URLs, eg. { "@cory/app1": "https://example.com/app1.js" }'
         default: '{}'
       ROOT_SPA_PATH:
         type: string
@@ -27,8 +27,8 @@ on:
       OUTPUT_DIR:
         type: string
         required: false
-        description: 'The directory where the built web-root is located relative to HOME_SPA_URL (e.g. dist/)'
-        default: 'dist/'
+        description: 'The directory where the built web-root is located relative to HOME_SPA_URL (e.g. dist)'
+        default: 'dist'
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -59,6 +59,7 @@ jobs:
             ) | {imports: .}
           ' maps/importmap.json > maps/importmap.json.tmp
           mv maps/importmap.json.tmp maps/importmap.json
+          cat maps/importmap.json
 
       # build the web-root
       - name: Build web-root
@@ -74,7 +75,7 @@ jobs:
       # sync the web-root to the root bucket
       - name: Sync web-root to root bucket
         working-directory: ${{ inputs.ROOT_SPA_PATH }}
-        run: aws s3 sync ${{ inputs.OUTPUT_DIR }} s3://${{ inputs.ROOT_BUCKET }}/${{ inputs.OUTPUT_DIR }} --delete
+        run: aws s3 sync ${{ inputs.OUTPUT_DIR }}/ s3://${{ inputs.ROOT_BUCKET }} --delete
 
       # invalidate the CloudFront cache
       - name: Invalidate CloudFront cache
