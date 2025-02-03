@@ -27,8 +27,9 @@ jobs:
         id: get-spa-paths
         env:
           RELEASES: "${{ toJson(steps.release-please.outputs.paths_released) }}"
+        # only include SPA paths that have been released (must end with "-spa")
         run: |
-          echo "value=$(jq -n -c 'env.RELEASES | fromjson as $object | ($object | fromjson) | map(select(. | match("-spa$")))')" >> $GITHUB_OUTPUT
+          echo "value=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]')" >> $GITHUB_OUTPUT
 
     # matrix over modified SPAs to deploy
   build-spas:
