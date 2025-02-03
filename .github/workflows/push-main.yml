@@ -45,6 +45,7 @@ jobs:
           echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
 
   update-pull-request:
+    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
     needs: release-please
     runs-on: ubuntu-latest
     permissions:
@@ -84,7 +85,7 @@ jobs:
       CDN_URL: ${{ vars.CDN_URL }}
       CDN_BUCKET: ${{ vars.CDN_AWS_BUCKET_NAME }}
       SPA_PATHS: ${{ needs.release-please.outputs.spa_paths_released }}
-      ALPHA_RELEASE: true
+      ALPHA_RELEASE: false
     secrets:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}

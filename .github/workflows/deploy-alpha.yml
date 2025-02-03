@@ -19,8 +19,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0  # Fetch all history for all branches and tags
-      - name: Install jq
-        run: sudo apt-get install -y jq
       - name: Find SPAs
         id: find_spas
         run: |
