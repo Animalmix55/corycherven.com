@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/Animalmix55/corycherven.com/compare/root-v0.1.0...root-v0.1.1) (2025-02-03)
+
+
+### Bug Fixes
+
+* finalizes release workflow ([6d3c1d9](https://github.com/Animalmix55/corycherven.com/commit/6d3c1d9dcd13ff419d5fdd43726aa85c9fa01bdb))
+
 ## [0.1.0](https://github.com/Animalmix55/corycherven.com/compare/root-v0.0.1...root-v0.1.0) (2025-02-03)
 
 
