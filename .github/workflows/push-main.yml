@@ -8,6 +8,9 @@ on:
 
 jobs:
   release-please:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     outputs:
       spa_paths_released: ${{ steps.get-spa-paths.outputs.value }}
