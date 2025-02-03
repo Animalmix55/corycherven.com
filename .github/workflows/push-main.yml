@@ -1,4 +1,4 @@
-name: On Push Main
+name: Release on Push
 
 on:
   push:
@@ -12,13 +12,12 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    environment: production
     outputs:
       spa_paths_released: ${{ steps.get-spa-paths.outputs.value }}
+      root_distribution: ${{ steps.get_env.outputs.root_distribution }}
+      root_bucket: ${{ steps.get_env.outputs.root_bucket }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0  # Fetch all history for all branches and tags
       - uses: googleapis/release-please-action@v4
         name: Release Please
         id: release-please
@@ -27,16 +26,22 @@ jobs:
           include-component-in-tag: true
           config-file: release-please-config.json
           target-branch: ${{ github.ref_name }}
+      - name: Checkout repository
+        uses: actions/checkout@v2
       - name: Get SPA Paths
         id: get-spa-paths
         env:
           RELEASES: "${{ toJson(steps.release-please.outputs.paths_released) }}"
         # only include SPA paths that have been released (must end with "-spa")
         run: |
-          yarn workspaces list --json
-          SPA_PATHS=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]'
+          SPA_PATHS=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]')
           echo "value=$SPA_PATHS" >> $GITHUB_OUTPUT
           echo "SPA Paths: $SPA_PATHS"
+      - name: Get environment variables
+        id: get_env
+        run: |
+          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}" >> $GITHUB_OUTPUT
+          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
 
     # matrix over modified SPAs to deploy
   build-spas:
@@ -52,28 +57,13 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
 
-  get-env:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.spa_paths_released != '[]' }}
-    outputs:
-      root_distribution: ${{ steps.get_env.outputs.root_distribution }}
-      root_bucket: ${{ steps.get_env.outputs.root_bucket }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Get environment variables
-        id: get_env
-        run: |
-          echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}" >> $GITHUB_OUTPUT
-          echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
-
   deploy-web:
-    needs: [build-spas, get-env]
+    needs: [build-spas, release-please]
     if: ${{ needs.build-spas.outputs.source_map_overrides != '{}' }}
     uses: "./.github/workflows/template-deploy-web.yml"
     with:
-      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ needs.get-env.outputs.root_distribution }}
-      ROOT_BUCKET: ${{ needs.get-env.outputs.root_bucket }}
+      CLOUDFRONT_ROOT_DISTRIBUTION: ${{ needs.release-please.outputs.root_distribution }}
+      ROOT_BUCKET: ${{ needs.release-please.outputs.root_bucket }}
       SOURCEMAP_OVERRIDES: ${{ needs.build-spas.outputs.source_map_overrides }}
       ROOT_SPA_PATH: "packages/Web/Root"
     secrets:
