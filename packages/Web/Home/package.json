@@ -1,6 +1,6 @@
 {
     "name": "@cory/web-home-spa",
-    "version": "0.1.0",
+    "version": "0.0.1",
     "scripts": {
         "build": "rollup -c",
         "build:dev": "rollup -c --environment NODE_ENV:development",
