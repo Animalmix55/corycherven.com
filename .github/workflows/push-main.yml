@@ -29,7 +29,10 @@ jobs:
           RELEASES: "${{ toJson(steps.release-please.outputs.paths_released) }}"
         # only include SPA paths that have been released (must end with "-spa")
         run: |
-          echo "value=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]')" >> $GITHUB_OUTPUT
+          yarn workspaces list --json
+          SPA_PATHS=$(yarn workspaces list --json | jq -s -c --argjson releases "$RELEASES" '[.[] | select(.name | endswith("-spa")) | select(.location as $loc | $releases | index($loc) != null) | .location]'
+          echo "value=$SPA_PATHS" >> $GITHUB_OUTPUT
+          echo "SPA Paths: $SPA_PATHS"
 
     # matrix over modified SPAs to deploy
   build-spas:
