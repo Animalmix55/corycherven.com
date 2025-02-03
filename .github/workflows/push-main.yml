@@ -43,38 +43,6 @@ jobs:
           echo "root_distribution=${{ vars.CLOUDFRONT_ROOT_DISTRIBUTION }}" >> $GITHUB_OUTPUT
           echo "root_bucket=${{ vars.ROOT_AWS_BUCKET_NAME }}" >> $GITHUB_OUTPUT
 
-  update-pull-request:
-    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
-    needs: release-please
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Fetching the repository
-        uses: actions/checkout@v2
-        with:
-          # release-please--branches-- plus the branch name
-          ref: release-please--branches--${{ github.ref_name }}
-          fetch-depth: 2
-      - name: Updating yarn.lock file
-        run: yarn install --mode=update-lockfile
-      - name: Merging changes with last commit
-        continue-on-error: true
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git reset --soft HEAD~1
-          git add .
-          git commit -am "chore: update lockfile"
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        continue-on-error: true
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: release-please--branches--${{ github.ref_name }}
-          force: true
-
   # matrix over modified SPAs to deploy
   build-spas:
     needs: release-please
